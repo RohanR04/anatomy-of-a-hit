@@ -15,15 +15,56 @@
             <p class="subtitle">How the structure of popular music has evolved from the 1960s to today</p>
         </header>
 
+        <!-- Animated insight cards -->
+        <section id="insight-bar">
+            <div class="insight-card">
+                <span class="insight-number" id="avg-intro">0s</span>
+                <span class="insight-label">avg intro</span>
+            </div>
+            <div class="insight-card">
+                <span class="insight-number" id="avg-first-chorus">0s</span>
+                <span class="insight-label">to first chorus</span>
+            </div>
+            <div class="insight-card">
+                <span class="insight-number" id="avg-duration">0s</span>
+                <span class="insight-label">avg length</span>
+            </div>
+            <div class="insight-card">
+                <span class="insight-number" id="chorus-pct">0%</span>
+                <span class="insight-label">is chorus</span>
+            </div>
+        </section>
+
+        <!-- Decade filter + sort -->
         <section id="controls">
             <div id="decade-buttons"></div>
+            <div id="sort-controls">
+                <label>Sort by</label>
+                <select id="sort-select">
+                    <option value="year">Year</option>
+                    <option value="duration">Duration (longest first)</option>
+                    <option value="first-chorus">Time to First Chorus</option>
+                    <option value="chorus-ratio">Chorus Ratio</option>
+                    <option value="intro-length">Intro Length</option>
+                </select>
+            </div>
         </section>
 
         <section id="legend"></section>
 
+        <!-- Aggregate average-structure bar -->
+        <section id="aggregate-view">
+            <h3>Average Structure <span class="agg-decade-label"></span></h3>
+            <svg id="aggregate-bar"></svg>
+        </section>
+
+        <!-- Main chart -->
         <section id="chart-container">
             <svg id="chart"></svg>
         </section>
+
+        <!-- Trend annotations overlay -->
+        <section id="annotations"></section>
 
         <div id="tooltip"></div>
 
