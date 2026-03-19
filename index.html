@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anatomy of a Hit</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Anatomy of a Hit</h1>
+            <p class="subtitle">How the structure of popular music has evolved from the 1960s to today</p>
+        </header>
+
+        <section id="controls">
+            <div id="decade-buttons"></div>
+        </section>
+
+        <section id="legend"></section>
+
+        <section id="chart-container">
+            <svg id="chart"></svg>
+        </section>
+
+        <div id="tooltip"></div>
+
+        <footer>
+            <p>Data: Song structures approximated from well-known recordings using standard music analysis conventions.</p>
+            <p>Built with <a href="https://d3js.org" target="_blank">D3.js</a> · CSC316 Assignment 3</p>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
