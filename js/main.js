@@ -299,8 +299,8 @@ function updateAggregate(songs) {
             enter => enter.append('text')
                 .attr('y', AGG_HEIGHT / 2 + 1).attr('dy', '0.35em')
                 .attr('text-anchor', 'middle')
-                .attr('fill', d => d.type === 'chorus' ? '#1a1a21' : '#fff')
-                .attr('font-size', '9.5px')
+                .attr('fill', d => d.type === 'chorus' ? '#0c0c12' : '#fff')
+                .attr('font-size', '11px')
                 .attr('font-family', 'Karla, sans-serif')
                 .attr('font-weight', 600)
                 .attr('pointer-events', 'none')
@@ -481,8 +481,8 @@ function buildSmallMultiples() {
             .attr('y', d => yScale(d))
             .attr('dy', '0.35em')
             .attr('text-anchor', 'end')
-            .attr('font-size', '10px')
-            .attr('fill', '#918d88')
+            .attr('font-size', '11px')
+            .attr('fill', '#a8a39c')
             .attr('font-family', 'Karla, sans-serif')
             .text(d => Math.round(d) + metric.suffix);
 
@@ -517,7 +517,7 @@ function buildSmallMultiples() {
             .attr('cy', d => yScale(d.value))
             .attr('r', 4)
             .attr('fill', metric.color)
-            .attr('stroke', '#111116')
+            .attr('stroke', '#0c0c12')
             .attr('stroke-width', 1.5);
 
         // X-axis labels
@@ -528,8 +528,8 @@ function buildSmallMultiples() {
             .attr('x', d => xScale(d.decade))
             .attr('y', H - 7)
             .attr('text-anchor', 'middle')
-            .attr('font-size', '10px')
-            .attr('fill', '#918d88')
+            .attr('font-size', '11px')
+            .attr('fill', '#a8a39c')
             .attr('font-family', 'Karla, sans-serif')
             .text(d => d.decade);
 
@@ -561,7 +561,7 @@ function buildSmallMultiples() {
             .attr('font-weight', 700)
             .attr('fill', '#111116');
         const decadeText = svg.append('text')
-            .attr('font-size', '9.5px')
+            .attr('font-size', '11px')
             .attr('font-family', 'Karla, sans-serif')
             .attr('fill', '#ddd9d3')
             .attr('opacity', 0)
@@ -630,7 +630,7 @@ function showTooltip(event, song, section) {
                 <span class="tt-swatch" style="background:${SECTION_COLORS[section.type]}"></span>
                 <strong>${section.type.replace('-', ' ')}</strong> · ${dur}s (${pct}%)
             </div>
-            <div style="color:#918d88; font-size:0.72rem; margin-top:2px">
+            <div style="color:#a8a39c; font-size:0.8rem; margin-top:2px">
                 ${formatTime(section.start)} – ${formatTime(section.end)}
             </div>
         `)
