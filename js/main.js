@@ -400,7 +400,7 @@ function drawChart(songs) {
         .call(d3.axisBottom(xScale).ticks(6).tickFormat(formatTime));
 }
 
-// TREND SPARKLINES (replaces small multiples)
+// TREND CHARTS (interactive, one per metric)
 
 function buildSmallMultiples() {
     const container = d3.select('#sm-container');
@@ -418,11 +418,18 @@ function buildSmallMultiples() {
     });
 
     const metrics = [
-        { key: 'introLength',     label: 'Avg Intro Length',    suffix: 's',  color: SECTION_COLORS.intro,          direction: 'down' },
-        { key: 'firstChorusTime', label: 'Time to First Chorus', suffix: 's',  color: SECTION_COLORS.chorus,         direction: 'down' },
-        { key: 'duration',        label: 'Avg Song Duration',    suffix: 's',  color: SECTION_COLORS.verse,          direction: 'mixed' },
-        { key: 'chorusRatio',     label: 'Chorus % of Song',     suffix: '%',  color: SECTION_COLORS['pre-chorus'],  direction: 'up' }
+        { key: 'introLength',     label: 'Avg Intro Length',     suffix: 's',  color: SECTION_COLORS.intro,
+          note: 'Intros shrink as streaming rewards instant hooks' },
+        { key: 'firstChorusTime', label: 'Time to First Chorus',  suffix: 's',  color: SECTION_COLORS.chorus,
+          note: 'The chorus arrives earlier every decade' },
+        { key: 'duration',        label: 'Avg Song Duration',     suffix: 's',  color: SECTION_COLORS.verse,
+          note: 'Songs peaked in the 1970s–80s, now shorter again' },
+        { key: 'chorusRatio',     label: 'Chorus % of Song',      suffix: '%',  color: SECTION_COLORS['pre-chorus'],
+          note: 'More of every song is now pure chorus' }
     ];
+
+    const W = 400, H = 160;
+    const padL = 42, padR = 18, padT = 16, padB = 28;
 
     metrics.forEach(metric => {
         const values = decadeData.map(d => ({ decade: d.decade, value: d[metric.key] }));
@@ -435,103 +442,177 @@ function buildSmallMultiples() {
 
         const card = container.append('div').attr('class', 'sm-trend-card');
 
-        card.append('div').attr('class', 'sm-metric-label').text(metric.label);
+        // Card header
+        const hdr = card.append('div').attr('class', 'sm-card-header');
+        hdr.append('span').attr('class', 'sm-metric-label').text(metric.label);
+        hdr.append('span')
+            .attr('class', `sm-trend-pill ${trendUp ? 'trend-up' : 'trend-down'}`)
+            .text(`${trendUp ? '▲' : '▼'} ${Math.abs(Math.round(delta))}${metric.suffix} since '60s`);
 
-        const W = 220, H = 72;
-        const padL = 6, padR = 6, padT = 6, padB = 18;
+        card.append('div').attr('class', 'sm-metric-note').text(metric.note);
 
+        // SVG
         const svg = card.append('svg')
             .attr('viewBox', `0 0 ${W} ${H}`)
-            .attr('preserveAspectRatio', 'none')
             .attr('class', 'sm-sparkline');
 
         const xScale = d3.scalePoint()
             .domain(DECADE_LIST)
             .range([padL, W - padR]);
 
-        const yPad = (maxVal - minVal) * 0.15 || 1;
+        const yPad = (maxVal - minVal) * 0.25 || 2;
         const yScale = d3.scaleLinear()
             .domain([minVal - yPad, maxVal + yPad])
             .range([H - padB, padT]);
 
-        // Area fill
-        const area = d3.area()
-            .x(d => xScale(d.decade))
-            .y0(H - padB)
-            .y1(d => yScale(d.value))
-            .curve(d3.curveCatmullRom);
+        // Gridlines + Y ticks
+        const yTicks = yScale.ticks(4);
+        svg.selectAll('.sm-gridline')
+            .data(yTicks)
+            .join('line')
+            .attr('x1', padL).attr('x2', W - padR)
+            .attr('y1', d => yScale(d)).attr('y2', d => yScale(d))
+            .attr('stroke', '#2c2c34').attr('stroke-width', 1);
 
+        svg.selectAll('.sm-ytick')
+            .data(yTicks)
+            .join('text')
+            .attr('x', padL - 6)
+            .attr('y', d => yScale(d))
+            .attr('dy', '0.35em')
+            .attr('text-anchor', 'end')
+            .attr('font-size', '10px')
+            .attr('fill', '#918d88')
+            .attr('font-family', 'Karla, sans-serif')
+            .text(d => Math.round(d) + metric.suffix);
+
+        // Area
         svg.append('path')
             .datum(values)
-            .attr('d', area)
+            .attr('d', d3.area()
+                .x(d => xScale(d.decade))
+                .y0(H - padB)
+                .y1(d => yScale(d.value))
+                .curve(d3.curveCatmullRom))
             .attr('fill', metric.color)
-            .attr('opacity', 0.12);
+            .attr('opacity', 0.1);
 
         // Line
-        const line = d3.line()
-            .x(d => xScale(d.decade))
-            .y(d => yScale(d.value))
-            .curve(d3.curveCatmullRom);
-
         svg.append('path')
             .datum(values)
-            .attr('d', line)
+            .attr('d', d3.line()
+                .x(d => xScale(d.decade))
+                .y(d => yScale(d.value))
+                .curve(d3.curveCatmullRom))
             .attr('fill', 'none')
             .attr('stroke', metric.color)
-            .attr('stroke-width', 2)
-            .attr('opacity', 0.95);
+            .attr('stroke-width', 2.5);
 
-        // Dots
-        svg.selectAll('circle')
+        // Static dots
+        svg.selectAll('.sm-dot')
             .data(values)
             .join('circle')
+            .attr('class', 'sm-dot')
             .attr('cx', d => xScale(d.decade))
             .attr('cy', d => yScale(d.value))
-            .attr('r', 3)
+            .attr('r', 4)
             .attr('fill', metric.color)
             .attr('stroke', '#111116')
-            .attr('stroke-width', 1);
+            .attr('stroke-width', 1.5);
 
-        // Decade labels
+        // X-axis labels
         svg.selectAll('.sm-xtick')
             .data(values)
             .join('text')
             .attr('class', 'sm-xtick')
             .attr('x', d => xScale(d.decade))
-            .attr('y', H - 4)
+            .attr('y', H - 7)
             .attr('text-anchor', 'middle')
-            .attr('font-size', '7.5px')
+            .attr('font-size', '10px')
             .attr('fill', '#918d88')
             .attr('font-family', 'Karla, sans-serif')
-            .text(d => "'" + d.decade.slice(2, 4));
+            .text(d => d.decade);
 
-        // Start / end value labels
-        svg.append('text')
-            .attr('x', xScale(values[0].decade))
-            .attr('y', yScale(firstVal) - 5)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', '8px')
+        // --- Interactive crosshair layer ---
+        const crosshair = svg.append('line')
+            .attr('y1', padT).attr('y2', H - padB)
+            .attr('stroke', metric.color)
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '4,3')
+            .attr('opacity', 0)
+            .attr('pointer-events', 'none');
+
+        const hoverCircle = svg.append('circle')
+            .attr('r', 6)
             .attr('fill', metric.color)
-            .attr('font-family', 'Karla, sans-serif')
-            .attr('font-weight', 600)
-            .text(Math.round(firstVal) + metric.suffix);
+            .attr('stroke', '#fff').attr('stroke-width', 2)
+            .attr('opacity', 0)
+            .attr('pointer-events', 'none');
 
-        svg.append('text')
-            .attr('x', xScale(values[values.length - 1].decade))
-            .attr('y', yScale(lastVal) - 5)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', '8px')
-            .attr('fill', metric.color)
+        // Value badge: background rect + text
+        const badgeG = svg.append('g').attr('opacity', 0).attr('pointer-events', 'none');
+        const badgeBg = badgeG.append('rect')
+            .attr('rx', 4).attr('ry', 4)
+            .attr('fill', metric.color);
+        const badgeText = badgeG.append('text')
+            .attr('dy', '0.35em')
+            .attr('font-size', '11px')
             .attr('font-family', 'Karla, sans-serif')
-            .attr('font-weight', 600)
-            .text(Math.round(lastVal) + metric.suffix);
+            .attr('font-weight', 700)
+            .attr('fill', '#111116');
+        const decadeText = svg.append('text')
+            .attr('font-size', '9.5px')
+            .attr('font-family', 'Karla, sans-serif')
+            .attr('fill', '#ddd9d3')
+            .attr('opacity', 0)
+            .attr('pointer-events', 'none');
 
-        // Footer: trend summary
-        const arrow  = trendUp ? '▲' : '▼';
-        const trendClass = trendUp ? 'trend-up' : 'trend-down';
-        card.append('div')
-            .attr('class', `sm-trend-footer ${trendClass}`)
-            .html(`<span class="sm-trend-arrow">${arrow}</span> ${Math.abs(Math.round(delta))}${metric.suffix} since the 1960s`);
+        // Hit area
+        svg.append('rect')
+            .attr('x', padL).attr('y', padT)
+            .attr('width', W - padL - padR)
+            .attr('height', H - padT - padB)
+            .attr('fill', 'transparent')
+            .on('mousemove', function(event) {
+                const [mx] = d3.pointer(event, svg.node());
+                let nearest = values[0], minDist = Infinity;
+                values.forEach(v => {
+                    const dist = Math.abs(xScale(v.decade) - mx);
+                    if (dist < minDist) { minDist = dist; nearest = v; }
+                });
+
+                const cx = xScale(nearest.decade);
+                const cy = yScale(nearest.value);
+                const label = Math.round(nearest.value) + metric.suffix;
+
+                crosshair.attr('x1', cx).attr('x2', cx).attr('opacity', 0.7);
+                hoverCircle.attr('cx', cx).attr('cy', cy).attr('opacity', 1);
+
+                // Badge positioning
+                badgeText.text(label);
+                const bw = label.length * 7.2 + 12;
+                const bh = 20;
+                const bx = cx > W * 0.65 ? cx - bw - 10 : cx + 10;
+                const by = cy - bh / 2;
+                badgeBg.attr('x', bx).attr('y', by).attr('width', bw).attr('height', bh);
+                badgeText.attr('x', bx + bw / 2).attr('y', by + bh / 2).attr('text-anchor', 'middle');
+                badgeG.attr('opacity', 1);
+
+                // Decade label below crosshair
+                const anchor = cx > W * 0.65 ? 'end' : 'start';
+                decadeText
+                    .attr('x', cx > W * 0.65 ? cx - 6 : cx + 6)
+                    .attr('y', H - padB + 14)
+                    .attr('text-anchor', anchor)
+                    .text(nearest.decade)
+                    .attr('opacity', 1);
+            })
+            .on('mouseleave', function() {
+                crosshair.attr('opacity', 0);
+                hoverCircle.attr('opacity', 0);
+                badgeG.attr('opacity', 0);
+                decadeText.attr('opacity', 0);
+            });
     });
 }
 

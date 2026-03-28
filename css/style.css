@@ -316,7 +316,7 @@ header .subtitle {
     stroke: var(--border);
 }
 
-/* TREND SPARKLINES */
+/* TREND CHARTS */
 #small-multiples {
     margin-bottom: 2.5rem;
     padding-top: 1.5rem;
@@ -334,50 +334,66 @@ header .subtitle {
 #small-multiples .sm-subtitle {
     font-size: 0.88rem;
     color: var(--text-muted);
-    margin-bottom: 1.2rem;
+    margin-bottom: 1.4rem;
 }
 
 #sm-container {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.2rem;
 }
 
 .sm-trend-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.85rem 0.85rem 0.7rem;
+    border-radius: 10px;
+    padding: 1.1rem 1.1rem 0.9rem;
+    transition: border-color 0.2s;
+}
+
+.sm-trend-card:hover {
+    border-color: #3a3a46;
+}
+
+.sm-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
 }
 
 .sm-metric-label {
     font-family: 'Karla', sans-serif;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--text);
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    margin-bottom: 0.5rem;
+}
+
+.sm-trend-pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.18rem 0.55rem;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+}
+
+.sm-trend-pill.trend-up   { background: rgba(53,212,122,0.15); color: #35d47a; }
+.sm-trend-pill.trend-down { background: rgba(232,82,122,0.15);  color: #e8527a; }
+
+.sm-metric-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.7rem;
+    line-height: 1.4;
 }
 
 .sm-sparkline {
     width: 100%;
     display: block;
     overflow: visible;
-}
-
-.sm-trend-footer {
-    font-size: 0.7rem;
-    font-weight: 600;
-    margin-top: 0.45rem;
-    letter-spacing: 0.01em;
-}
-
-.sm-trend-footer.trend-up   { color: #35d47a; }
-.sm-trend-footer.trend-down { color: #e8527a; }
-
-.sm-trend-arrow {
-    font-size: 0.65rem;
+    cursor: crosshair;
 }
 
 /* TOOLTIP */
@@ -445,12 +461,6 @@ footer a:hover {
 }
 
 /* RESPONSIVE */
-@media (max-width: 900px) {
-    #sm-container {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
 @media (max-width: 700px) {
     header h1 { font-size: 2.2rem; }
     #app { padding: 1.5rem 1rem 2rem; }
@@ -459,5 +469,5 @@ footer a:hover {
     .insight-number { font-size: 1.2rem; }
     #controls { flex-direction: column; align-items: flex-start; }
     .song-label-title { font-size: 9px; }
-    #sm-container { grid-template-columns: repeat(2, 1fr); }
+    #sm-container { grid-template-columns: 1fr; }
 }
