@@ -17,7 +17,7 @@ const SECTION_ORDER = [
     'hook', 'bridge', 'instrumental', 'breakdown', 'outro'
 ];
 
-const DECADE_LIST = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'];
+const DECADE_LIST = ['1960s', '1970s', '1980s', '1990s', '2000s'];
 const DECADES = ['All', ...DECADE_LIST];
 
 const margin = { top: 30, right: 20, bottom: 30, left: 220 };
@@ -192,7 +192,6 @@ function updateAnnotations(songs) {
     const avgIntro = d3.mean(songs, d => d.introLength);
     const avgFC = d3.mean(songs, d => d.firstChorusTime);
     const avgDur = d3.mean(songs, d => d.duration);
-    const avgChorus = d3.mean(songs, d => d.chorusRatio) * 100;
 
     const notes = [];
 
@@ -209,35 +208,31 @@ function updateAnnotations(songs) {
 
     if (currentDecade === 'All') {
         const s70 = decadeStat('1970s');
-        const s20 = decadeStat('2020s');
-        if (s70 && s20) {
-            const fcDrop = Math.round(s70.avgFC - s20.avgFC);
-            notes.push(`Time to first chorus dropped by <strong>${fcDrop} seconds</strong> from the 1970s to the 2020s — listeners today expect the hook almost immediately.`);
-            const durDrop = Math.round(s70.avgDur - s20.avgDur);
-            notes.push(`Songs have gotten <strong>${durDrop}s shorter</strong> on average since the 1970s. The streaming era rewards brevity.`);
+        const s00 = decadeStat('2000s');
+        if (s70 && s00) {
+            const fcDrop = Math.round(s70.avgFC - s00.avgFC);
+            notes.push(`Time to first chorus dropped by <strong>${fcDrop} seconds</strong> from the 1970s to the 2000s — front-loading the hook became the norm.`);
+            const durDiff = Math.round(s70.avgDur - s00.avgDur);
+            if (durDiff > 0) {
+                notes.push(`Songs got <strong>${durDiff}s shorter</strong> on average from the 1970s to the 2000s as radio edits and commercial pressure tightened structures.`);
+            }
         }
-        notes.push(`Pre-choruses barely existed before the 1980s. Today they're a <strong>standard part of the formula</strong>.`);
+        notes.push(`Pre-choruses barely existed before the 1980s, then became a <strong>standard part of the formula</strong> by the 1990s.`);
     } else if (currentDecade === '1960s') {
         notes.push(`1960s hits were built on <strong>simple verse-chorus structures</strong>. Many relied on repeating verses without a traditional chorus.`);
         notes.push(`Average length of <strong>${Math.round(avgDur)}s</strong> — labels kept singles short for radio and jukebox play.`);
     } else if (currentDecade === '1970s') {
-        notes.push(`The 1970s had the <strong>longest average intro</strong> at ${Math.round(avgIntro)}s — artists set the mood before vocals.`);
-        notes.push(`Average of <strong>${Math.round(avgFC)}s</strong> to first chorus — the slowest era. Songs like "Stairway to Heaven" deliberately delayed gratification.`);
+        notes.push(`The 1970s had the <strong>longest average intro</strong> at ${Math.round(avgIntro)}s — artists set the mood before vocals entered.`);
+        notes.push(`Average of <strong>${Math.round(avgFC)}s</strong> to first chorus — the slowest era. Songs deliberately delayed gratification.`);
     } else if (currentDecade === '1980s') {
-        notes.push(`The 1980s introduced the <strong>pre-chorus</strong> as standard — "Billie Jean" and "Take On Me" refined build-and-release.`);
-        notes.push(`Instrumental breaks stayed prominent — <strong>electronic production</strong> gave artists new textures.`);
+        notes.push(`The 1980s introduced the <strong>pre-chorus</strong> as standard — build-and-release became the dominant pop architecture.`);
+        notes.push(`Instrumental breaks stayed prominent — <strong>electronic production</strong> gave artists new textures to work with.`);
     } else if (currentDecade === '1990s') {
         notes.push(`The 1990s saw <strong>genre diversification</strong> in structure — grunge, R&B, and pop each developed distinct formulas.`);
-        notes.push(`Bridges averaged ~<strong>28s</strong> — the "key change bridge" was still a go-to move.`);
+        notes.push(`Bridges averaged ~<strong>${Math.round(d3.mean(songs.filter(s => s.sections.some(x => x.type === 'bridge')), s => s.sections.filter(x => x.type === 'bridge').reduce((a,b) => a + (b.end - b.start), 0)))}s</strong> — the extended bridge was a go-to emotional move.`);
     } else if (currentDecade === '2000s') {
-        notes.push(`Hip-hop brought the <strong>hook</strong> as a distinct element — "In Da Club" replaces the traditional chorus entirely.`);
-        notes.push(`First chorus at <strong>${Math.round(avgFC)}s</strong> average — noticeably faster, signaling the shift toward front-loaded design.`);
-    } else if (currentDecade === '2010s') {
-        notes.push(`A structural split: "Old Town Road" (113s) coexists with "Sicko Mode" (312s) and its <strong>multiple beat switches</strong>.`);
-        notes.push(`The <strong>breakdown</strong> emerged as a section type — energy resets that recapture attention.`);
-    } else if (currentDecade === '2020s') {
-        notes.push(`Just <strong>${Math.round(avgIntro)}s intros</strong> — the shortest ever. Songs front-load the chorus to survive a skip-happy world.`);
-        notes.push(`<strong>${Math.round(avgChorus)}%</strong> of a typical 2020s hit is chorus — the highest ratio of any decade.`);
+        notes.push(`The 2000s saw the rise of the <strong>hook</strong> as a distinct section — replacing the traditional chorus in hip-hop and R&B.`);
+        notes.push(`First chorus at <strong>${Math.round(avgFC)}s</strong> average — noticeably faster than the 1970s, signaling the shift toward front-loaded design.`);
     }
 
     notes.forEach((html, i) => {
@@ -326,8 +321,17 @@ function drawChart(songs) {
         .attr('viewBox', `0 0 ${containerWidth} ${chartHeight}`)
         .attr('height', chartHeight);
 
-    const maxDuration = d3.max(songs, d => d.duration) || 300;
+    const durations = [...songs].map(d => d.duration).sort((a, b) => a - b);
+    const maxDuration = durations[Math.floor(durations.length * 0.92)] || 300;
     const xScale = d3.scaleLinear().domain([0, maxDuration]).range([0, innerWidth]);
+
+    // Clip path so bars beyond the axis don't overflow
+    let defs = svg.select('defs');
+    if (defs.empty()) defs = svg.append('defs');
+    let clip = defs.select('#chart-clip');
+    if (clip.empty()) clip = defs.append('clipPath').attr('id', 'chart-clip');
+    clip.selectAll('rect').data([null]).join('rect')
+        .attr('width', innerWidth).attr('height', chartHeight);
 
     let g = svg.select('g.chart-group');
     if (g.empty()) {
@@ -341,7 +345,12 @@ function drawChart(songs) {
     topAxis.transition().duration(600).call(d3.axisTop(xScale).ticks(6).tickFormat(formatTime));
 
     // Song rows
-    const rows = g.selectAll('.song-group').data(songs, d => d.title + d.artist);
+    let barsGroup = g.select('.bars-group');
+    if (barsGroup.empty()) {
+        barsGroup = g.append('g').attr('class', 'bars-group');
+    }
+
+    const rows = barsGroup.selectAll('.song-group').data(songs, d => d.title + d.artist);
 
     rows.exit().transition().duration(300).attr('opacity', 0).remove();
 
@@ -358,8 +367,9 @@ function drawChart(songs) {
 
     rowEnter.each(function (song) {
         const row = d3.select(this);
+        const clipped = row.append('g').attr('clip-path', 'url(#chart-clip)');
         song.sections.forEach(section => {
-            row.append('rect')
+            clipped.append('rect')
                 .attr('class', 'section-rect')
                 .attr('data-type', section.type)
                 .attr('x', xScale(section.start))
