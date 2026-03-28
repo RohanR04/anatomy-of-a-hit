@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anatomy of a Hit</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
@@ -52,6 +52,9 @@
 
         <section id="legend"></section>
 
+        <!-- Trend annotations — moved above chart for visibility -->
+        <section id="annotations"></section>
+
         <!-- Aggregate average-structure bar -->
         <section id="aggregate-view">
             <h3>Average Structure <span class="agg-decade-label"></span></h3>
@@ -63,8 +66,12 @@
             <svg id="chart"></svg>
         </section>
 
-        <!-- Trend annotations overlay -->
-        <section id="annotations"></section>
+        <!-- Small multiples: all decades side by side -->
+        <section id="small-multiples">
+            <h3>The Shift at a Glance</h3>
+            <p class="sm-subtitle">Average song blueprint by decade — watch the chorus grow and intros shrink</p>
+            <div id="sm-container"></div>
+        </section>
 
         <div id="tooltip"></div>
 

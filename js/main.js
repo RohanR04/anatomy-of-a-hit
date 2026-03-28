@@ -1,15 +1,15 @@
 // === CONSTANTS ===
 
 const SECTION_COLORS = {
-    intro:        '#6366f1',
-    verse:        '#3b82f6',
-    'pre-chorus': '#06b6d4',
-    chorus:       '#f59e0b',
-    bridge:       '#ec4899',
-    outro:        '#8b5cf6',
-    instrumental: '#10b981',
-    hook:         '#ef4444',
-    breakdown:    '#f97316'
+    intro:        '#7c7fbf',
+    verse:        '#6b8cae',
+    'pre-chorus': '#6ba3a0',
+    chorus:       '#d4a24e',
+    bridge:       '#c47a8a',
+    outro:        '#9b8bb4',
+    instrumental: '#7aab8a',
+    hook:         '#c67a5c',
+    breakdown:    '#c48c5a'
 };
 
 const SECTION_ORDER = [
@@ -17,13 +17,14 @@ const SECTION_ORDER = [
     'hook', 'bridge', 'instrumental', 'breakdown', 'outro'
 ];
 
-const DECADES = ['All', '1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'];
+const DECADE_LIST = ['1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'];
+const DECADES = ['All', ...DECADE_LIST];
 
 const margin = { top: 30, right: 20, bottom: 30, left: 220 };
 const ROW_HEIGHT = 32;
 const ROW_GAP = 4;
 const BAR_HEIGHT = 22;
-const AGG_HEIGHT = 36;
+const AGG_HEIGHT = 34;
 
 // === STATE ===
 
@@ -60,12 +61,11 @@ d3.csv('data/songs.csv').then(raw => {
     buildDecadeButtons();
     buildLegend();
     buildSortListener();
+    buildSmallMultiples();
     render();
 });
 
-// ============================================================
 // DECADE FILTER BUTTONS
-// ============================================================
 
 function buildDecadeButtons() {
     const container = d3.select('#decade-buttons');
@@ -78,13 +78,15 @@ function buildDecadeButtons() {
         .on('click', (event, d) => {
             currentDecade = d;
             container.selectAll('button').classed('active', b => b === d);
+            // Sync small multiple highlight
+            d3.selectAll('.sm-card').classed('active', function() {
+                return d3.select(this).attr('data-decade') === d;
+            });
             render();
         });
 }
 
-// ============================================================
 // SORT CONTROLS
-// ============================================================
 
 function buildSortListener() {
     d3.select('#sort-select').on('change', function () {
@@ -104,9 +106,7 @@ function sortSongs(songs) {
     return [...songs].sort(sorters[currentSort] || sorters.year);
 }
 
-// ============================================================
-// LEGEND (clickable to highlight a section type)
-// ============================================================
+// LEGEND
 
 function buildLegend() {
     const legend = d3.select('#legend');
@@ -137,9 +137,7 @@ function buildLegend() {
         .text(d => d.replace('-', ' '));
 }
 
-// ============================================================
-// MAIN RENDER (orchestrates all sub-renders)
-// ============================================================
+// MAIN RENDER
 
 function render() {
     const filtered = currentDecade === 'All'
@@ -149,14 +147,12 @@ function render() {
     const sorted = sortSongs(filtered);
 
     updateInsights(filtered);
-    updateAggregate(filtered);
     updateAnnotations(filtered);
+    updateAggregate(filtered);
     drawChart(sorted);
 }
 
-// ============================================================
-// INSIGHT CARDS (animated number counters)
-// ============================================================
+// INSIGHT CARDS
 
 function updateInsights(songs) {
     if (!songs.length) return;
@@ -185,91 +181,7 @@ function animateNumber(selector, target, suffix) {
         });
 }
 
-// ============================================================
-// AGGREGATE STRUCTURE BAR
-// ============================================================
-
-function updateAggregate(songs) {
-    const label = currentDecade === 'All' ? '(all decades)' : `(${currentDecade})`;
-    d3.select('.agg-decade-label').text(label);
-
-    // Compute average proportion per section type
-    const totals = {};
-    SECTION_ORDER.forEach(t => totals[t] = 0);
-    let totalDuration = 0;
-
-    songs.forEach(song => {
-        song.sections.forEach(s => {
-            const dur = s.end - s.start;
-            if (totals[s.type] !== undefined) totals[s.type] += dur;
-        });
-        totalDuration += song.duration;
-    });
-
-    const segments = SECTION_ORDER
-        .map(type => ({ type, ratio: totalDuration > 0 ? totals[type] / totalDuration : 0 }))
-        .filter(d => d.ratio > 0);
-
-    // Cumulative x positions
-    let cumX = 0;
-    segments.forEach(d => {
-        d.x = cumX;
-        cumX += d.ratio;
-    });
-
-    const svg = d3.select('#aggregate-bar');
-    const width = svg.node().parentElement.clientWidth;
-    svg.attr('viewBox', `0 0 ${width} ${AGG_HEIGHT}`);
-
-    // --- Segment rects ---
-    svg.selectAll('rect')
-        .data(segments, d => d.type)
-        .join(
-            enter => enter.append('rect')
-                .attr('rx', 4)
-                .attr('y', 4)
-                .attr('height', AGG_HEIGHT - 8)
-                .attr('fill', d => SECTION_COLORS[d.type])
-                .attr('x', d => d.x * width)
-                .attr('width', d => Math.max(0, d.ratio * width - 1.5))
-                .attr('opacity', 0)
-                .call(e => e.transition().duration(600).attr('opacity', 1)),
-            update => update
-                .transition().duration(600)
-                .attr('x', d => d.x * width)
-                .attr('width', d => Math.max(0, d.ratio * width - 1.5))
-                .attr('fill', d => SECTION_COLORS[d.type]),
-            exit => exit.transition().duration(300).attr('opacity', 0).remove()
-        );
-
-    // --- Labels on wide-enough segments ---
-    svg.selectAll('text')
-        .data(segments.filter(d => d.ratio > 0.07), d => d.type)
-        .join(
-            enter => enter.append('text')
-                .attr('y', AGG_HEIGHT / 2 + 1)
-                .attr('dy', '0.35em')
-                .attr('text-anchor', 'middle')
-                .attr('fill', d => (d.type === 'chorus' || d.type === 'breakdown') ? '#000' : '#fff')
-                .attr('font-size', '10px')
-                .attr('font-family', 'DM Sans, sans-serif')
-                .attr('font-weight', 500)
-                .attr('pointer-events', 'none')
-                .attr('x', d => (d.x + d.ratio / 2) * width)
-                .text(d => `${d.type.replace('-',' ')} ${Math.round(d.ratio * 100)}%`)
-                .attr('opacity', 0)
-                .call(e => e.transition().duration(600).delay(200).attr('opacity', 1)),
-            update => update
-                .transition().duration(600)
-                .attr('x', d => (d.x + d.ratio / 2) * width)
-                .text(d => `${d.type.replace('-',' ')} ${Math.round(d.ratio * 100)}%`),
-            exit => exit.transition().duration(200).attr('opacity', 0).remove()
-        );
-}
-
-// ============================================================
-// ANNOTATIONS (contextual insights per decade)
-// ============================================================
+// ANNOTATIONS (restyled, above chart)
 
 function updateAnnotations(songs) {
     const container = d3.select('#annotations');
@@ -284,7 +196,6 @@ function updateAnnotations(songs) {
 
     const notes = [];
 
-    // Helper: per-decade stats
     function decadeStat(dec) {
         const ds = allSongs.filter(s => s.decade === dec);
         if (!ds.length) return null;
@@ -301,45 +212,110 @@ function updateAnnotations(songs) {
         const s20 = decadeStat('2020s');
         if (s70 && s20) {
             const fcDrop = Math.round(s70.avgFC - s20.avgFC);
-            notes.push(`The average time to the first chorus dropped by <strong>${fcDrop} seconds</strong> from the 1970s to the 2020s — listeners today expect the hook almost immediately.`);
+            notes.push(`Time to first chorus dropped by <strong>${fcDrop} seconds</strong> from the 1970s to the 2020s — listeners today expect the hook almost immediately.`);
             const durDrop = Math.round(s70.avgDur - s20.avgDur);
-            notes.push(`Songs have gotten <strong>${durDrop}s shorter</strong> on average since the 1970s. The streaming era rewards brevity — every second counts toward a completed play.`);
+            notes.push(`Songs have gotten <strong>${durDrop}s shorter</strong> on average since the 1970s. The streaming era rewards brevity.`);
         }
-        notes.push(`Pre-choruses barely existed before the 1980s. Today they're a <strong>standard part of the formula</strong>, building tension before the payoff.`);
+        notes.push(`Pre-choruses barely existed before the 1980s. Today they're a <strong>standard part of the formula</strong>.`);
     } else if (currentDecade === '1960s') {
-        notes.push(`1960s hits were built on <strong>simple verse-chorus structures</strong>. Many songs, like Sam Cooke's, relied on repeating verses without a traditional chorus at all.`);
-        notes.push(`Average song length of <strong>${Math.round(avgDur)}s</strong> — labels kept singles short for radio play and jukebox compatibility.`);
+        notes.push(`1960s hits were built on <strong>simple verse-chorus structures</strong>. Many relied on repeating verses without a traditional chorus.`);
+        notes.push(`Average length of <strong>${Math.round(avgDur)}s</strong> — labels kept singles short for radio and jukebox play.`);
     } else if (currentDecade === '1970s') {
-        notes.push(`The 1970s had the <strong>longest average intro</strong> at ${Math.round(avgIntro)}s — artists took their time setting the mood before the vocals kicked in.`);
-        notes.push(`With an average of <strong>${Math.round(avgFC)}s</strong> to the first chorus, 70s hits were the slowest to reach their hook. Songs like "Stairway to Heaven" and "Bohemian Rhapsody" deliberately delayed gratification.`);
+        notes.push(`The 1970s had the <strong>longest average intro</strong> at ${Math.round(avgIntro)}s — artists set the mood before vocals.`);
+        notes.push(`Average of <strong>${Math.round(avgFC)}s</strong> to first chorus — the slowest era. Songs like "Stairway to Heaven" deliberately delayed gratification.`);
     } else if (currentDecade === '1980s') {
-        notes.push(`The 1980s introduced the <strong>pre-chorus</strong> as a standard structural element — songs like "Billie Jean" and "Take On Me" refined the build-and-release formula.`);
-        notes.push(`Instrumental breaks and solos still commanded significant time — <strong>electronic production</strong> gave artists new textures to fill those sections.`);
+        notes.push(`The 1980s introduced the <strong>pre-chorus</strong> as standard — "Billie Jean" and "Take On Me" refined build-and-release.`);
+        notes.push(`Instrumental breaks stayed prominent — <strong>electronic production</strong> gave artists new textures.`);
     } else if (currentDecade === '1990s') {
-        notes.push(`The 1990s saw <strong>genre diversification</strong> in structure — grunge, R&B, and pop each developed distinct formulas. R&B tracks like "No Scrubs" lean heavily on pre-chorus/chorus cycles.`);
-        notes.push(`Bridges remained common at <strong>${Math.round(d3.mean(songs.filter(s => s.sections.some(sec => sec.type === 'bridge')), d => d.sections.find(s => s.type === 'bridge') ? d.sections.find(s => s.type === 'bridge').end - d.sections.find(s => s.type === 'bridge').start : 0) || 0)}s</strong> average — the "key change bridge" was still a go-to move.`);
+        notes.push(`The 1990s saw <strong>genre diversification</strong> in structure — grunge, R&B, and pop each developed distinct formulas.`);
+        notes.push(`Bridges averaged ~<strong>28s</strong> — the "key change bridge" was still a go-to move.`);
     } else if (currentDecade === '2000s') {
-        notes.push(`Hip-hop's rise brought the <strong>hook</strong> as a distinct structural element — see "In Da Club" where the hook replaces the traditional chorus entirely.`);
-        notes.push(`The first chorus arrives at <strong>${Math.round(avgFC)}s</strong> on average — noticeably faster than previous decades, signaling the shift toward front-loaded song design.`);
+        notes.push(`Hip-hop brought the <strong>hook</strong> as a distinct element — "In Da Club" replaces the traditional chorus entirely.`);
+        notes.push(`First chorus at <strong>${Math.round(avgFC)}s</strong> average — noticeably faster, signaling the shift toward front-loaded design.`);
     } else if (currentDecade === '2010s') {
-        notes.push(`The 2010s show a structural split: ultra-short tracks like "Old Town Road" (113s) coexist with rule-breakers like "Sicko Mode" (312s) that use <strong>multiple beat switches</strong> instead of traditional sections.`);
-        notes.push(`The <strong>breakdown</strong> emerged as a new section type, especially in hip-hop and electronic music — a tempo or energy shift mid-song that resets the listener's attention.`);
+        notes.push(`A structural split: "Old Town Road" (113s) coexists with "Sicko Mode" (312s) and its <strong>multiple beat switches</strong>.`);
+        notes.push(`The <strong>breakdown</strong> emerged as a section type — energy resets that recapture attention.`);
     } else if (currentDecade === '2020s') {
-        notes.push(`2020s hits average just <strong>${Math.round(avgIntro)}s intros</strong> — the shortest ever. In a skip-happy streaming world, songs front-load the chorus to hook listeners immediately.`);
-        notes.push(`<strong>${Math.round(avgChorus)}%</strong> of a typical 2020s hit is chorus — the highest ratio of any decade. The chorus IS the song.`);
+        notes.push(`Just <strong>${Math.round(avgIntro)}s intros</strong> — the shortest ever. Songs front-load the chorus to survive a skip-happy world.`);
+        notes.push(`<strong>${Math.round(avgChorus)}%</strong> of a typical 2020s hit is chorus — the highest ratio of any decade.`);
     }
 
     notes.forEach((html, i) => {
         container.append('div')
             .attr('class', 'annotation-card')
-            .style('animation-delay', `${i * 0.15}s`)
-            .html(html);
+            .style('animation-delay', `${i * 0.12}s`)
+            .html(`<span class="annotation-icon">♪</span>${html}`);
     });
 }
 
-// ============================================================
-// MAIN CHART DRAWING
-// ============================================================
+// AGGREGATE STRUCTURE BAR
+
+function updateAggregate(songs) {
+    const label = currentDecade === 'All' ? '(all decades)' : `(${currentDecade})`;
+    d3.select('.agg-decade-label').text(label);
+
+    const totals = {};
+    SECTION_ORDER.forEach(t => totals[t] = 0);
+    let totalDuration = 0;
+
+    songs.forEach(song => {
+        song.sections.forEach(s => {
+            const dur = s.end - s.start;
+            if (totals[s.type] !== undefined) totals[s.type] += dur;
+        });
+        totalDuration += song.duration;
+    });
+
+    const segments = SECTION_ORDER
+        .map(type => ({ type, ratio: totalDuration > 0 ? totals[type] / totalDuration : 0 }))
+        .filter(d => d.ratio > 0);
+
+    let cumX = 0;
+    segments.forEach(d => { d.x = cumX; cumX += d.ratio; });
+
+    const svg = d3.select('#aggregate-bar');
+    const width = svg.node().parentElement.clientWidth;
+    svg.attr('viewBox', `0 0 ${width} ${AGG_HEIGHT}`);
+
+    svg.selectAll('rect')
+        .data(segments, d => d.type)
+        .join(
+            enter => enter.append('rect')
+                .attr('rx', 3).attr('y', 3).attr('height', AGG_HEIGHT - 6)
+                .attr('fill', d => SECTION_COLORS[d.type])
+                .attr('x', d => d.x * width)
+                .attr('width', d => Math.max(0, d.ratio * width - 1.5))
+                .attr('opacity', 0)
+                .call(e => e.transition().duration(600).attr('opacity', 1)),
+            update => update.transition().duration(600)
+                .attr('x', d => d.x * width)
+                .attr('width', d => Math.max(0, d.ratio * width - 1.5)),
+            exit => exit.transition().duration(300).attr('opacity', 0).remove()
+        );
+
+    svg.selectAll('text')
+        .data(segments.filter(d => d.ratio > 0.07), d => d.type)
+        .join(
+            enter => enter.append('text')
+                .attr('y', AGG_HEIGHT / 2 + 1).attr('dy', '0.35em')
+                .attr('text-anchor', 'middle')
+                .attr('fill', d => d.type === 'chorus' ? '#1a1a21' : '#fff')
+                .attr('font-size', '9.5px')
+                .attr('font-family', 'Karla, sans-serif')
+                .attr('font-weight', 600)
+                .attr('pointer-events', 'none')
+                .attr('x', d => (d.x + d.ratio / 2) * width)
+                .text(d => `${d.type.replace('-',' ')} ${Math.round(d.ratio * 100)}%`)
+                .attr('opacity', 0)
+                .call(e => e.transition().duration(600).delay(200).attr('opacity', 1)),
+            update => update.transition().duration(600)
+                .attr('x', d => (d.x + d.ratio / 2) * width)
+                .text(d => `${d.type.replace('-',' ')} ${Math.round(d.ratio * 100)}%`),
+            exit => exit.transition().duration(200).attr('opacity', 0).remove()
+        );
+}
+
+// MAIN CHART
 
 function drawChart(songs) {
     const containerWidth = document.getElementById('chart-container').clientWidth;
@@ -350,56 +326,36 @@ function drawChart(songs) {
         .attr('viewBox', `0 0 ${containerWidth} ${chartHeight}`)
         .attr('height', chartHeight);
 
-    // X scale: seconds → pixels
     const maxDuration = d3.max(songs, d => d.duration) || 300;
-    const xScale = d3.scaleLinear()
-        .domain([0, maxDuration])
-        .range([0, innerWidth]);
+    const xScale = d3.scaleLinear().domain([0, maxDuration]).range([0, innerWidth]);
 
-    // Root <g>
     let g = svg.select('g.chart-group');
     if (g.empty()) {
-        g = svg.append('g')
-            .attr('class', 'chart-group')
+        g = svg.append('g').attr('class', 'chart-group')
             .attr('transform', `translate(${margin.left}, ${margin.top})`);
     }
 
-    // --- Time axis (top) ---
+    // Top axis
     let topAxis = g.select('.top-axis');
-    if (topAxis.empty()) {
-        topAxis = g.append('g').attr('class', 'time-axis top-axis');
-    }
-    topAxis.transition().duration(600).call(
-        d3.axisTop(xScale).ticks(6).tickFormat(formatTime)
-    );
+    if (topAxis.empty()) topAxis = g.append('g').attr('class', 'time-axis top-axis');
+    topAxis.transition().duration(600).call(d3.axisTop(xScale).ticks(6).tickFormat(formatTime));
 
-    // --- Song rows (enter / update / exit) ---
-    const rows = g.selectAll('.song-group')
-        .data(songs, d => d.title + d.artist);
+    // Song rows
+    const rows = g.selectAll('.song-group').data(songs, d => d.title + d.artist);
 
-    // EXIT
-    rows.exit()
-        .transition().duration(300)
-        .attr('opacity', 0)
-        .remove();
+    rows.exit().transition().duration(300).attr('opacity', 0).remove();
 
-    // ENTER
     const rowEnter = rows.enter()
-        .append('g')
-        .attr('class', 'song-group')
+        .append('g').attr('class', 'song-group')
         .attr('transform', (d, i) => `translate(0, ${i * (ROW_HEIGHT + ROW_GAP) + 10})`)
         .attr('opacity', 0);
 
-    // Song title label
     rowEnter.append('text')
         .attr('class', 'song-label-title')
-        .attr('x', -8)
-        .attr('y', BAR_HEIGHT / 2)
-        .attr('dy', '0.35em')
+        .attr('x', -8).attr('y', BAR_HEIGHT / 2).attr('dy', '0.35em')
         .attr('text-anchor', 'end')
         .text(d => truncateLabel(`${d.title} — ${d.artist}`, 30));
 
-    // Section rectangles
     rowEnter.each(function (song) {
         const row = d3.select(this);
         song.sections.forEach(section => {
@@ -410,7 +366,7 @@ function drawChart(songs) {
                 .attr('y', 0)
                 .attr('width', Math.max(0, xScale(section.end) - xScale(section.start) - 1))
                 .attr('height', BAR_HEIGHT)
-                .attr('rx', 3)
+                .attr('rx', 2)
                 .attr('fill', SECTION_COLORS[section.type] || '#555')
                 .classed('dimmed', highlightSection && section.type !== highlightSection)
                 .on('mouseenter', (event) => showTooltip(event, song, section))
@@ -419,45 +375,105 @@ function drawChart(songs) {
         });
     });
 
-    // Animate entering rows with stagger
-    rowEnter.transition()
-        .duration(500)
-        .delay((d, i) => i * 15)
-        .attr('opacity', 1);
+    rowEnter.transition().duration(500).delay((d, i) => i * 15).attr('opacity', 1);
 
-    // UPDATE — reposition rows (animated sort)
-    rows.transition()
-        .duration(600)
+    rows.transition().duration(600)
         .attr('transform', (d, i) => `translate(0, ${i * (ROW_HEIGHT + ROW_GAP) + 10})`)
         .attr('opacity', 1);
 
-    // Update section rect positions/widths when x scale changes
     rows.each(function (song) {
         d3.select(this).selectAll('.section-rect').each(function (_, i) {
             if (i < song.sections.length) {
                 const s = song.sections[i];
-                d3.select(this)
-                    .transition().duration(600)
+                d3.select(this).transition().duration(600)
                     .attr('x', xScale(s.start))
                     .attr('width', Math.max(0, xScale(s.end) - xScale(s.start) - 1));
             }
         });
     });
 
-    // --- Time axis (bottom) ---
+    // Bottom axis
     let bottomAxis = g.select('.bottom-axis');
-    if (bottomAxis.empty()) {
-        bottomAxis = g.append('g').attr('class', 'time-axis bottom-axis');
-    }
-    bottomAxis
-        .transition().duration(600)
+    if (bottomAxis.empty()) bottomAxis = g.append('g').attr('class', 'time-axis bottom-axis');
+    bottomAxis.transition().duration(600)
         .attr('transform', `translate(0, ${songs.length * (ROW_HEIGHT + ROW_GAP) + 10})`)
         .call(d3.axisBottom(xScale).ticks(6).tickFormat(formatTime));
 }
 
-// ============================================================
+// SMALL MULTIPLES (vertical stacked bars per decade)
+
+function buildSmallMultiples() {
+    const container = d3.select('#sm-container');
+
+    DECADE_LIST.forEach(decade => {
+        const songs = allSongs.filter(d => d.decade === decade);
+
+        // Compute proportions
+        const totals = {};
+        SECTION_ORDER.forEach(t => totals[t] = 0);
+        let totalDuration = 0;
+        songs.forEach(song => {
+            song.sections.forEach(s => {
+                const dur = s.end - s.start;
+                if (totals[s.type] !== undefined) totals[s.type] += dur;
+            });
+            totalDuration += song.duration;
+        });
+
+        const segments = SECTION_ORDER
+            .map(type => ({ type, ratio: totalDuration > 0 ? totals[type] / totalDuration : 0 }))
+            .filter(d => d.ratio > 0);
+
+        // Stats
+        const avgFC = Math.round(d3.mean(songs, d => d.firstChorusTime));
+        const avgDur = Math.round(d3.mean(songs, d => d.duration));
+
+        // Build card
+        const card = container.append('div')
+            .attr('class', 'sm-card')
+            .attr('data-decade', decade)
+            .on('click', () => {
+                currentDecade = decade;
+                d3.select('#decade-buttons').selectAll('button')
+                    .classed('active', b => b === decade);
+                d3.selectAll('.sm-card').classed('active', function() {
+                    return d3.select(this).attr('data-decade') === decade;
+                });
+                render();
+            });
+
+        card.append('span').attr('class', 'sm-decade-label').text(decade);
+
+        // Vertical stacked bar SVG
+        const barDiv = card.append('div').attr('class', 'sm-bar-container');
+        const svg = barDiv.append('svg')
+            .attr('viewBox', '0 0 40 120')
+            .attr('preserveAspectRatio', 'xMidYMid meet');
+
+        const barW = 28;
+        const barX = (40 - barW) / 2;
+        const barH = 110;
+        const barY = 5;
+
+        let cumY = 0;
+        segments.forEach(seg => {
+            const h = seg.ratio * barH;
+            svg.append('rect')
+                .attr('x', barX)
+                .attr('y', barY + cumY)
+                .attr('width', barW)
+                .attr('height', Math.max(0, h - 0.5))
+                .attr('rx', 2)
+                .attr('fill', SECTION_COLORS[seg.type]);
+            cumY += h;
+        });
+
+        card.append('div').attr('class', 'sm-stat')
+            .html(`<strong>${avgFC}s</strong> to chorus<br><strong>${avgDur}s</strong> avg`);
+    });
+}
+
 // TOOLTIP
-// ============================================================
 
 function showTooltip(event, song, section) {
     const dur = section.end - section.start;
@@ -471,7 +487,7 @@ function showTooltip(event, song, section) {
                 <span class="tt-swatch" style="background:${SECTION_COLORS[section.type]}"></span>
                 <strong>${section.type.replace('-', ' ')}</strong> · ${dur}s (${pct}%)
             </div>
-            <div style="color:#8a8a8e; font-size:0.75rem; margin-top:3px">
+            <div style="color:#918d88; font-size:0.72rem; margin-top:2px">
                 ${formatTime(section.start)} – ${formatTime(section.end)}
             </div>
         `)
@@ -493,9 +509,7 @@ function hideTooltip() {
     d3.select('#tooltip').style('opacity', 0);
 }
 
-// ============================================================
 // UTILITIES
-// ============================================================
 
 function formatTime(sec) {
     const m = Math.floor(sec / 60);
@@ -507,9 +521,7 @@ function truncateLabel(str, max) {
     return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-// ============================================================
 // RESIZE HANDLER
-// ============================================================
 
 window.addEventListener('resize', () => {
     if (allSongs.length) render();
