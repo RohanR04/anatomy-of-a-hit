@@ -1,15 +1,15 @@
 // === CONSTANTS ===
 
 const SECTION_COLORS = {
-    intro:        '#7c7fbf',
-    verse:        '#6b8cae',
-    'pre-chorus': '#6ba3a0',
-    chorus:       '#d4a24e',
-    bridge:       '#c47a8a',
-    outro:        '#9b8bb4',
-    instrumental: '#7aab8a',
-    hook:         '#c67a5c',
-    breakdown:    '#c48c5a'
+    intro:        '#7b78f0',
+    verse:        '#4a9de0',
+    'pre-chorus': '#1ec9be',
+    chorus:       '#f5b731',
+    bridge:       '#e8527a',
+    outro:        '#a970e8',
+    instrumental: '#35d47a',
+    hook:         '#f07044',
+    breakdown:    '#f0a040'
 };
 
 const SECTION_ORDER = [
@@ -400,76 +400,138 @@ function drawChart(songs) {
         .call(d3.axisBottom(xScale).ticks(6).tickFormat(formatTime));
 }
 
-// SMALL MULTIPLES (vertical stacked bars per decade)
+// TREND SPARKLINES (replaces small multiples)
 
 function buildSmallMultiples() {
     const container = d3.select('#sm-container');
+    container.html('');
 
-    DECADE_LIST.forEach(decade => {
+    const decadeData = DECADE_LIST.map(decade => {
         const songs = allSongs.filter(d => d.decade === decade);
+        return {
+            decade,
+            introLength:     d3.mean(songs, d => d.introLength) || 0,
+            firstChorusTime: d3.mean(songs, d => d.firstChorusTime) || 0,
+            duration:        d3.mean(songs, d => d.duration) || 0,
+            chorusRatio:     (d3.mean(songs, d => d.chorusRatio) || 0) * 100
+        };
+    });
 
-        // Compute proportions
-        const totals = {};
-        SECTION_ORDER.forEach(t => totals[t] = 0);
-        let totalDuration = 0;
-        songs.forEach(song => {
-            song.sections.forEach(s => {
-                const dur = s.end - s.start;
-                if (totals[s.type] !== undefined) totals[s.type] += dur;
-            });
-            totalDuration += song.duration;
-        });
+    const metrics = [
+        { key: 'introLength',     label: 'Avg Intro Length',    suffix: 's',  color: SECTION_COLORS.intro,          direction: 'down' },
+        { key: 'firstChorusTime', label: 'Time to First Chorus', suffix: 's',  color: SECTION_COLORS.chorus,         direction: 'down' },
+        { key: 'duration',        label: 'Avg Song Duration',    suffix: 's',  color: SECTION_COLORS.verse,          direction: 'mixed' },
+        { key: 'chorusRatio',     label: 'Chorus % of Song',     suffix: '%',  color: SECTION_COLORS['pre-chorus'],  direction: 'up' }
+    ];
 
-        const segments = SECTION_ORDER
-            .map(type => ({ type, ratio: totalDuration > 0 ? totals[type] / totalDuration : 0 }))
-            .filter(d => d.ratio > 0);
+    metrics.forEach(metric => {
+        const values = decadeData.map(d => ({ decade: d.decade, value: d[metric.key] }));
+        const minVal = d3.min(values, d => d.value);
+        const maxVal = d3.max(values, d => d.value);
+        const firstVal = values[0].value;
+        const lastVal  = values[values.length - 1].value;
+        const delta    = lastVal - firstVal;
+        const trendUp  = delta > 0;
 
-        // Stats
-        const avgFC = Math.round(d3.mean(songs, d => d.firstChorusTime));
-        const avgDur = Math.round(d3.mean(songs, d => d.duration));
+        const card = container.append('div').attr('class', 'sm-trend-card');
 
-        // Build card
-        const card = container.append('div')
-            .attr('class', 'sm-card')
-            .attr('data-decade', decade)
-            .on('click', () => {
-                currentDecade = decade;
-                d3.select('#decade-buttons').selectAll('button')
-                    .classed('active', b => b === decade);
-                d3.selectAll('.sm-card').classed('active', function() {
-                    return d3.select(this).attr('data-decade') === decade;
-                });
-                render();
-            });
+        card.append('div').attr('class', 'sm-metric-label').text(metric.label);
 
-        card.append('span').attr('class', 'sm-decade-label').text(decade);
+        const W = 220, H = 72;
+        const padL = 6, padR = 6, padT = 6, padB = 18;
 
-        // Vertical stacked bar SVG
-        const barDiv = card.append('div').attr('class', 'sm-bar-container');
-        const svg = barDiv.append('svg')
-            .attr('viewBox', '0 0 40 120')
-            .attr('preserveAspectRatio', 'xMidYMid meet');
+        const svg = card.append('svg')
+            .attr('viewBox', `0 0 ${W} ${H}`)
+            .attr('preserveAspectRatio', 'none')
+            .attr('class', 'sm-sparkline');
 
-        const barW = 28;
-        const barX = (40 - barW) / 2;
-        const barH = 110;
-        const barY = 5;
+        const xScale = d3.scalePoint()
+            .domain(DECADE_LIST)
+            .range([padL, W - padR]);
 
-        let cumY = 0;
-        segments.forEach(seg => {
-            const h = seg.ratio * barH;
-            svg.append('rect')
-                .attr('x', barX)
-                .attr('y', barY + cumY)
-                .attr('width', barW)
-                .attr('height', Math.max(0, h - 0.5))
-                .attr('rx', 2)
-                .attr('fill', SECTION_COLORS[seg.type]);
-            cumY += h;
-        });
+        const yPad = (maxVal - minVal) * 0.15 || 1;
+        const yScale = d3.scaleLinear()
+            .domain([minVal - yPad, maxVal + yPad])
+            .range([H - padB, padT]);
 
-        card.append('div').attr('class', 'sm-stat')
-            .html(`<strong>${avgFC}s</strong> to chorus<br><strong>${avgDur}s</strong> avg`);
+        // Area fill
+        const area = d3.area()
+            .x(d => xScale(d.decade))
+            .y0(H - padB)
+            .y1(d => yScale(d.value))
+            .curve(d3.curveCatmullRom);
+
+        svg.append('path')
+            .datum(values)
+            .attr('d', area)
+            .attr('fill', metric.color)
+            .attr('opacity', 0.12);
+
+        // Line
+        const line = d3.line()
+            .x(d => xScale(d.decade))
+            .y(d => yScale(d.value))
+            .curve(d3.curveCatmullRom);
+
+        svg.append('path')
+            .datum(values)
+            .attr('d', line)
+            .attr('fill', 'none')
+            .attr('stroke', metric.color)
+            .attr('stroke-width', 2)
+            .attr('opacity', 0.95);
+
+        // Dots
+        svg.selectAll('circle')
+            .data(values)
+            .join('circle')
+            .attr('cx', d => xScale(d.decade))
+            .attr('cy', d => yScale(d.value))
+            .attr('r', 3)
+            .attr('fill', metric.color)
+            .attr('stroke', '#111116')
+            .attr('stroke-width', 1);
+
+        // Decade labels
+        svg.selectAll('.sm-xtick')
+            .data(values)
+            .join('text')
+            .attr('class', 'sm-xtick')
+            .attr('x', d => xScale(d.decade))
+            .attr('y', H - 4)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '7.5px')
+            .attr('fill', '#918d88')
+            .attr('font-family', 'Karla, sans-serif')
+            .text(d => "'" + d.decade.slice(2, 4));
+
+        // Start / end value labels
+        svg.append('text')
+            .attr('x', xScale(values[0].decade))
+            .attr('y', yScale(firstVal) - 5)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '8px')
+            .attr('fill', metric.color)
+            .attr('font-family', 'Karla, sans-serif')
+            .attr('font-weight', 600)
+            .text(Math.round(firstVal) + metric.suffix);
+
+        svg.append('text')
+            .attr('x', xScale(values[values.length - 1].decade))
+            .attr('y', yScale(lastVal) - 5)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '8px')
+            .attr('fill', metric.color)
+            .attr('font-family', 'Karla, sans-serif')
+            .attr('font-weight', 600)
+            .text(Math.round(lastVal) + metric.suffix);
+
+        // Footer: trend summary
+        const arrow  = trendUp ? '▲' : '▼';
+        const trendClass = trendUp ? 'trend-up' : 'trend-down';
+        card.append('div')
+            .attr('class', `sm-trend-footer ${trendClass}`)
+            .html(`<span class="sm-trend-arrow">${arrow}</span> ${Math.abs(Math.round(delta))}${metric.suffix} since the 1960s`);
     });
 }
 
